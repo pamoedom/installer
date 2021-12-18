@@ -15,8 +15,13 @@ record_service_stage_success
 if [ ! -f coreos-installer.done ]; then
   record_service_stage_start "coreos-installer"
   # Write image + ignition to disk
+{{- if .BootstrapInPlace.CopyNetwork }}
+  echo "Executing coreos-installer with the following options: install -i /opt/openshift/master.ign {{.BootstrapInPlace.InstallationDisk}} --copy-network"
+  coreos-installer install -i /opt/openshift/master.ign {{.BootstrapInPlace.InstallationDisk}} --copy-network
+{{ else }}
   echo "Executing coreos-installer with the following options: install -i /opt/openshift/master.ign {{.BootstrapInPlace.InstallationDisk}}"
   coreos-installer install -i /opt/openshift/master.ign {{.BootstrapInPlace.InstallationDisk}}
+{{ end -}}
 
   touch coreos-installer.done
   record_service_stage_success

@@ -371,6 +371,8 @@ const (
 type BootstrapInPlace struct {
 	// InstallationDisk is the target disk drive for coreos-installer
 	InstallationDisk string `json:"installationDisk"`
+	// CopyNetwork is an optional flag to copy static network configuration from /etc/NetworkManager/system-connections/
+	CopyNetwork bool `json:"copyNetwork,omitempty"`
 }
 
 // WorkerMachinePool retrieves the worker MachinePool from InstallConfig.Compute
