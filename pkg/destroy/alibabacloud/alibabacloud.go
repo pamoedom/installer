@@ -47,6 +47,7 @@ type ClusterUninstaller struct {
 		eips           []ResourceArn
 		natgateways    []ResourceArn
 		slbs           []ResourceArn
+		buckets        []ResourceArn
 		others         []ResourceArn
 	}
 
@@ -184,7 +185,7 @@ func (o *ClusterUninstaller) destroyCluster() error {
 	}{
 		{
 			{name: "DNS records", execute: o.deleteDNSRecords},
-			{name: "OSS buckets", execute: o.deleteBucket},
+			{name: "OSS buckets", execute: o.deleteBuckets},
 			{name: "RAM roles", execute: o.deleteRAMRoles},
 			{name: "ECS instances", execute: o.deleteEcsInstances},
 		},
@@ -312,6 +313,13 @@ func (o *ClusterUninstaller) tidyResourceByArn(resourceArns []ResourceArn) {
 			default:
 				o.TagResources.others = append(o.TagResources.others, resourceArn)
 			}
+		case "oss":
+			switch resourceArn.ResourceType {
+			case "bucket":
+				o.TagResources.buckets = append(o.TagResources.buckets, resourceArn)
+			default:
+				o.TagResources.others = append(o.TagResources.others, resourceArn)
+			}
 		default:
 			o.TagResources.others = append(o.TagResources.others, resourceArn)
 		}
@@ -323,7 +331,7 @@ func (o *ClusterUninstaller) deleteResourceGroup(logger logrus.FieldLogger) (err
 	logger = logger.WithField("name", resourceGroupName)
 	logger.Debug("Searching resource groups")
 
-	response, err := o.listResourceGroups()
+	response, err := o.listResourceGroups(resourceGroupName)
 	if err != nil {
 		return err
 	}
@@ -347,7 +355,7 @@ func (o *ClusterUninstaller) deleteResourceGroup(logger logrus.FieldLogger) (err
 		2*time.Second,
 		1*time.Minute,
 		func() (bool, error) {
-			response, err := o.listResourceGroups()
+			response, err := o.listResourceGroups(resourceGroupName)
 			if err != nil {
 				return false, err
 			}
@@ -373,18 +381,37 @@ func (o *ClusterUninstaller) deleteResourceGroupByID(resourceGroupID string, log
 	return
 }
 
-func (o *ClusterUninstaller) listResourceGroups() (response *resourcemanager.ListResourceGroupsResponse, err error) {
+func (o *ClusterUninstaller) listResourceGroups(resourceGroupName string) (response *resourcemanager.ListResourceGroupsResponse, err error) {
 	request := resourcemanager.CreateListResourceGroupsRequest()
 	request.Scheme = "https"
+	request.QueryParams["Name"] = resourceGroupName
 	response, err = o.rmanagerClient.ListResourceGroups(request)
 	return
 }
 
-func (o *ClusterUninstaller) deleteBucket(logger logrus.FieldLogger) (err error) {
-	bucketName := fmt.Sprintf("%s-bootstrap", o.InfraID)
-	logger = logger.WithField("bucketName", bucketName)
-	logger.Debug("Searching OSS bucket")
+func (o *ClusterUninstaller) deleteBuckets(logger logrus.FieldLogger) (err error) {
+	if len(o.TagResources.buckets) <= 0 {
+		return nil
+	}
 
+	var bucketNames []string
+	for _, bucketArn := range o.TagResources.buckets {
+		bucketNames = append(bucketNames, bucketArn.ResourceID)
+	}
+
+	for _, bucketName := range bucketNames {
+		ossLogger := logger.WithField("bucketName", bucketName)
+		err = o.deleteBucket(bucketName, ossLogger)
+		if err != nil {
+			return err
+		}
+	}
+	logger.Info("OSS buckets deleted")
+	return
+}
+
+func (o *ClusterUninstaller) deleteBucket(bucketName string, logger logrus.FieldLogger) (err error) {
+	logger.Debug("Searching OSS bucket")
 	result, err := o.ossClient.ListBuckets(oss.Prefix(bucketName))
 	if err != nil || len(result.Buckets) == 0 {
 		return
