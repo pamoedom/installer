@@ -44,6 +44,31 @@ spec:
             required:
             - installationDisk
             type: object
+          capabilities:
+            description: Capabilities configures the installation of optional core
+              cluster components.
+            properties:
+              additionalEnabledCapabilities:
+                description: additionalEnabledCapabilities extends the set of managed
+                  capabilities beyond the baseline defined in baselineCapabilitySet.
+                  The default is an empty set.
+                items:
+                  description: ClusterVersionCapability enumerates optional, core
+                    cluster components.
+                  enum:
+                  - openshift-samples
+                  type: string
+                type: array
+              baselineCapabilitySet:
+                description: baselineCapabilitySet selects an initial set of optional
+                  capabilities to enable, which can be extended via additionalEnabledCapabilities.
+                  The default is vCurrent.
+                enum:
+                - None
+                - v4.11
+                - vCurrent
+                type: string
+            type: object
           compute:
             description: Compute is the configuration for the machines that comprise
               the compute nodes.
@@ -468,6 +493,36 @@ spec:
                           - server
                           - high_performance
                           type: string
+                      type: object
+                    powervs:
+                      description: PowerVS is the configuration used when installing
+                        on IBM Power VS.
+                      properties:
+                        memory:
+                          description: Memory defines the memory in GB for the instance.
+                          type: string
+                        procType:
+                          description: ProcType defines the processor sharing model
+                            for the instance. Must be one of {capped, dedicated, shared}.
+                          enum:
+                          - ""
+                          - capped
+                          - dedicated
+                          - shared
+                          type: string
+                        processors:
+                          description: Processors defines the processing units for
+                            the instance.
+                          type: string
+                        sysType:
+                          description: SysType defines the system type for instance.
+                          type: string
+                        volumeIDs:
+                          description: VolumeIDs is the list of volumes attached to
+                            the instance.
+                          items:
+                            type: string
+                          type: array
                       type: object
                     vsphere:
                       description: VSphere is the configuration used when installing
@@ -929,6 +984,36 @@ spec:
                         - high_performance
                         type: string
                     type: object
+                  powervs:
+                    description: PowerVS is the configuration used when installing
+                      on IBM Power VS.
+                    properties:
+                      memory:
+                        description: Memory defines the memory in GB for the instance.
+                        type: string
+                      procType:
+                        description: ProcType defines the processor sharing model
+                          for the instance. Must be one of {capped, dedicated, shared}.
+                        enum:
+                        - ""
+                        - capped
+                        - dedicated
+                        - shared
+                        type: string
+                      processors:
+                        description: Processors defines the processing units for the
+                          instance.
+                        type: string
+                      sysType:
+                        description: SysType defines the system type for instance.
+                        type: string
+                      volumeIDs:
+                        description: VolumeIDs is the list of volumes attached to
+                          the instance.
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   vsphere:
                     description: VSphere is the configuration used when installing
                       on vSphere.
@@ -981,7 +1066,7 @@ spec:
               values. For all other platforms, the field must not be set. AWS: \"Mint\",
               \"Passthrough\", \"Manual\" Azure: \"Mint\", \"Passthrough\", \"Manual\"
               AzureStack: \"Manual\" GCP: \"Mint\", \"Passthrough\", \"Manual\" IBMCloud:
-              \"Manual\" AlibabaCloud: \"Manual\""
+              \"Manual\" AlibabaCloud: \"Manual\" PowerVS: \"Manual\""
             enum:
             - ""
             - Mint
@@ -1810,22 +1895,6 @@ spec:
                       cluster. If empty, a new resource group will be created for
                       the cluster."
                     type: string
-                  subnets:
-                    description: Subnets is a list of existing subnet IDs. Leave unset
-                      and the installer will create new subnets in the VPC network
-                      on your behalf.
-                    items:
-                      type: string
-                    type: array
-                  vpc:
-                    description: VPC is the ID of an existing VPC network. Leave unset
-                      and the installer will create a new VPC network on your behalf.
-                    type: string
-                  vpcResourceGroupName:
-                    description: VPCResourceGroupName specifies the resource group
-                      containing an existing VPC. This must be defined if `VPC` is
-                      defined.
-                    type: string
                 required:
                 - region
                 type: object
@@ -2174,6 +2243,92 @@ spec:
                 - ingress_vip
                 - ovirt_cluster_id
                 - ovirt_storage_domain_id
+                type: object
+              powervs:
+                description: PowerVS is the configuration used when installing on
+                  Power VS.
+                properties:
+                  clusterOSImage:
+                    description: ClusterOSImage is a pre-created Power VS boot image
+                      that overrides the default image for cluster nodes.
+                    type: string
+                  defaultMachinePlatform:
+                    description: DefaultMachinePlatform is the default configuration
+                      used when installing on Power VS for machine pools which do
+                      not define their own platform configuration.
+                    properties:
+                      memory:
+                        description: Memory defines the memory in GB for the instance.
+                        type: string
+                      procType:
+                        description: ProcType defines the processor sharing model
+                          for the instance. Must be one of {capped, dedicated, shared}.
+                        enum:
+                        - ""
+                        - capped
+                        - dedicated
+                        - shared
+                        type: string
+                      processors:
+                        description: Processors defines the processing units for the
+                          instance.
+                        type: string
+                      sysType:
+                        description: SysType defines the system type for instance.
+                        type: string
+                      volumeIDs:
+                        description: VolumeIDs is the list of volumes attached to
+                          the instance.
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  powervsResourceGroup:
+                    description: PowerVSResourceGroup is the resource group in which
+                      Power VS resources will be created.
+                    type: string
+                  pvsNetworkName:
+                    description: PVSNetworkName specifies an existing network within
+                      the Power VS Service Instance.
+                    type: string
+                  region:
+                    description: Region specifies the IBM Cloud colo region where
+                      the cluster will be created.
+                    type: string
+                  serviceInstanceID:
+                    description: ServiceInstanceID is the ID of the Power IAAS instance
+                      created from the IBM Cloud Catalog
+                    type: string
+                  subnets:
+                    description: Subnets specifies existing subnets (by ID) where
+                      cluster resources will be created.  Leave unset to have the
+                      installer create subnets in a new VPC on your behalf.
+                    items:
+                      type: string
+                    type: array
+                  userID:
+                    description: UserID is the login for the user's IBM Cloud account.
+                    type: string
+                  vpc:
+                    description: VPC is a VPC inside IBM Cloud. Needed in order to
+                      create VPC Load Balancers.
+                    type: string
+                  vpcRegion:
+                    description: VPCRegion specifies the IBM Cloud region in which
+                      to create VPC resources. Leave unset to allow installer to select
+                      the closest VPC region.
+                    type: string
+                  zone:
+                    description: Zone specifies the IBM Cloud colo region where the
+                      cluster will be created. At this time, only single-zone clusters
+                      are supported.
+                    type: string
+                required:
+                - powervsResourceGroup
+                - region
+                - serviceInstanceID
+                - userID
+                - zone
                 type: object
               vsphere:
                 description: VSphere is the configuration used when installing on

@@ -31,6 +31,9 @@ func Test_PrintFields(t *testing.T) {
     bootstrapInPlace <object>
       BootstrapInPlace is the configuration for installing a single node with bootstrap in place installation.
 
+    capabilities <object>
+      Capabilities configures the installation of optional core cluster components.
+
     compute <[]object>
       Compute is the configuration for the machines that comprise the compute nodes.
       MachinePool is a pool of machines to be installed.
@@ -43,7 +46,7 @@ func Test_PrintFields(t *testing.T) {
       CredentialsMode is used to explicitly set the mode with which CredentialRequests are satisfied. 
  If this field is set, then the installer will not attempt to query the cloud permissions before attempting installation. If the field is not set or empty, then the installer will perform its normal verification that the credentials provided are sufficient to perform an installation. 
  There are three possible values for this field, but the valid values are dependent upon the platform being used. "Mint": create new credentials with a subset of the overall permissions for each CredentialsRequest "Passthrough": copy the credentials with all of the overall permissions for each CredentialsRequest "Manual": CredentialsRequests must be handled manually by the user 
- For each of the following platforms, the field can set to the specified values. For all other platforms, the field must not be set. AWS: "Mint", "Passthrough", "Manual" Azure: "Mint", "Passthrough", "Manual" AzureStack: "Manual" GCP: "Mint", "Passthrough", "Manual" IBMCloud: "Manual" AlibabaCloud: "Manual"
+ For each of the following platforms, the field can set to the specified values. For all other platforms, the field must not be set. AWS: "Mint", "Passthrough", "Manual" Azure: "Mint", "Passthrough", "Manual" AzureStack: "Manual" GCP: "Mint", "Passthrough", "Manual" IBMCloud: "Manual" AlibabaCloud: "Manual" PowerVS: "Manual"
 
     fips <boolean>
       Default: false
@@ -113,6 +116,9 @@ func Test_PrintFields(t *testing.T) {
 
     ovirt <object>
       Ovirt is the configuration used when installing on oVirt.
+
+    powervs <object>
+      PowerVS is the configuration used when installing on Power VS.
 
     vsphere <object>
       VSphere is the configuration used when installing on vSphere.`,

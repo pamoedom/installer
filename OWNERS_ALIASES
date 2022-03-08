@@ -8,14 +8,12 @@ aliases:
     - staebler
     - sdodson
     - smarterclayton
-    - wking
   installer-reviewers:
     - jhixson74
     - jstuever
     - kirankt
     - patrickdillon
     - rna-afk
-    - squidboylan
   libvirt-approvers:
     - praveenkumar
     - cfergeau
@@ -34,6 +32,15 @@ aliases:
     - mdbooth
     - pierreprinetti
     - stephenfin
+  powervs-approvers:
+    - clnperez
+    - mkumatag
+    - Prashanth684
+  powervs-reviewers:
+    - clnperez
+    - mkumatag
+    - Prashanth684
+    - mjturek
   vsphere-approvers:
     - dav1x
     - jcpowermac
@@ -75,21 +82,29 @@ aliases:
     - jhixson74
     - m1kola
   ovirt-approvers:
-    - rgolangh
-    - Gal-Zaidman
-    - eslutsky
     - janosdebugs
+    - eslutsky
+    - mmartinv
+    - bkhizgiy
   ovirt-reviewers:
-    - rgolangh
-    - Gal-Zaidman
-    - eslutsky
     - janosdebugs
+    - eslutsky
+    - mmartinv
+    - bkhizgiy
   ibmcloud-approvers:
     - bobbyradford
     - hasueki
   ibmcloud-reviewers:
     - bobbyradford
     - hasueki
+  nutanix-approvers:
+    - thunderboltsid
+    - yanhua121
+    - adiantum
+  nutanix-reviewers:
+    - thunderboltsid
+    - yanhua121
+    - adiantum
   # Keep in sync with the `coreos-approvers` and `coreos-reviewers` lists in https://github.com/openshift/release/blob/master/OWNERS_ALIASES
   coreos-approvers:
     - miabbott

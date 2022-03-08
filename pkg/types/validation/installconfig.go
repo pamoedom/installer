@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	dockerref "github.com/containers/image/docker/reference"
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
@@ -39,6 +40,8 @@ import (
 	openstackvalidation "github.com/openshift/installer/pkg/types/openstack/validation"
 	"github.com/openshift/installer/pkg/types/ovirt"
 	ovirtvalidation "github.com/openshift/installer/pkg/types/ovirt/validation"
+	"github.com/openshift/installer/pkg/types/powervs"
+	powervsvalidation "github.com/openshift/installer/pkg/types/powervs/validation"
 	"github.com/openshift/installer/pkg/types/vsphere"
 	vspherevalidation "github.com/openshift/installer/pkg/types/vsphere/validation"
 	"github.com/openshift/installer/pkg/validate"
@@ -125,10 +128,13 @@ func ValidateInstallConfig(c *types.InstallConfig) field.ErrorList {
 		allErrs = append(allErrs, field.NotSupported(field.NewPath("publish"), c.Publish, validPublishingStrategyValues))
 	}
 	allErrs = append(allErrs, validateCloudCredentialsMode(c.CredentialsMode, field.NewPath("credentialsMode"), c.Platform)...)
+	if c.Capabilities != nil {
+		allErrs = append(allErrs, validateCapabilities(c.Capabilities, field.NewPath("capabilities"))...)
+	}
 
 	if c.Publish == types.InternalPublishingStrategy {
 		switch platformName := c.Platform.Name(); platformName {
-		case aws.Name, azure.Name, gcp.Name:
+		case aws.Name, azure.Name, gcp.Name, alibabacloud.Name:
 		default:
 			allErrs = append(allErrs, field.Invalid(field.NewPath("publish"), c.Publish, fmt.Sprintf("Internal publish strategy is not supported on %q platform", platformName)))
 		}
@@ -487,6 +493,9 @@ func validatePlatform(platform *types.Platform, fldPath *field.Path, network *ty
 			return openstackvalidation.ValidatePlatform(platform.OpenStack, network, f, c)
 		})
 	}
+	if platform.PowerVS != nil {
+		validate(powervs.Name, platform.PowerVS, func(f *field.Path) field.ErrorList { return powervsvalidation.ValidatePlatform(platform.PowerVS, f) })
+	}
 	if platform.VSphere != nil {
 		validate(vsphere.Name, platform.VSphere, func(f *field.Path) field.ErrorList { return vspherevalidation.ValidatePlatform(platform.VSphere, f) })
 	}
@@ -620,6 +629,7 @@ func validateCloudCredentialsMode(mode types.CredentialsMode, fldPath *field.Pat
 		azure.Name:        allowedAzureModes,
 		gcp.Name:          {types.MintCredentialsMode, types.PassthroughCredentialsMode, types.ManualCredentialsMode},
 		ibmcloud.Name:     {types.ManualCredentialsMode},
+		powervs.Name:      {types.ManualCredentialsMode},
 	}
 	if validModes, ok := validPlatformCredentialsModes[platform.Name()]; ok {
 		validModesSet := sets.NewString()
@@ -695,6 +705,34 @@ func validateFIPSconfig(c *types.InstallConfig) field.ErrorList {
 		re := regexp.MustCompile(`^ecdsa-sha2-nistp\d{3}$|^ssh-rsa$`)
 		if !re.MatchString(sshKeyType) {
 			allErrs = append(allErrs, field.Invalid(field.NewPath("sshKey"), c.SSHKey, fmt.Sprintf("SSH key type %s unavailable when FIPS is enabled. Please use rsa or ecdsa.", sshKeyType)))
+		}
+	}
+	return allErrs
+}
+
+// validateCapabilities checks if additional, optional OpenShift components are specified in the
+// install-config to be included in the installation.
+func validateCapabilities(c *types.Capabilities, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	allCapabilitySets := sets.NewString()
+	allAvailableCapabilities := sets.NewString()
+	// Create sets of all capability sets and *all* available capabilities across those capability sets
+	for baselineSet, capabilities := range configv1.ClusterVersionCapabilitySets {
+		allCapabilitySets.Insert(string(baselineSet))
+		for _, capability := range capabilities {
+			allAvailableCapabilities.Insert(string(capability))
+		}
+	}
+
+	if !allCapabilitySets.Has(string(c.BaselineCapabilitySet)) {
+		allErrs = append(allErrs, field.NotSupported(fldPath.Child("baselineCapabilitySet"), c.BaselineCapabilitySet, allCapabilitySets.List()))
+	}
+
+	// Check to see the validity of additionalEnabledCapabilities specified by the user
+	for i, capability := range c.AdditionalEnabledCapabilities {
+		if !allAvailableCapabilities.Has(string(capability)) {
+			allErrs = append(allErrs, field.NotSupported(fldPath.Child("additionalEnabledCapabilities").Index(i), capability, allAvailableCapabilities.List()))
 		}
 	}
 	return allErrs
