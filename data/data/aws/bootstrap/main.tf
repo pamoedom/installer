@@ -16,7 +16,7 @@ locals {
 provider "aws" {
   region = var.aws_region
 
-  skip_region_validation = var.aws_skip_region_validation
+  skip_region_validation = true
 
   endpoints {
     ec2     = lookup(var.custom_endpoints, "ec2", null)
@@ -34,7 +34,6 @@ data "aws_ebs_default_kms_key" "current" {}
 
 resource "aws_s3_bucket" "ignition" {
   bucket = var.aws_ignition_bucket
-  acl    = "private"
 
   tags = merge(
     {
@@ -46,6 +45,11 @@ resource "aws_s3_bucket" "ignition" {
   lifecycle {
     ignore_changes = all
   }
+}
+
+resource "aws_s3_bucket_acl" ignition {
+  bucket = aws_s3_bucket.ignition.id
+  acl    = "private"
 }
 
 resource "aws_s3_bucket_object" "ignition" {

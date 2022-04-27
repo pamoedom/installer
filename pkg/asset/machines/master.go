@@ -14,25 +14,28 @@ import (
 	baremetalapi "github.com/openshift/cluster-api-provider-baremetal/pkg/apis"
 	baremetalprovider "github.com/openshift/cluster-api-provider-baremetal/pkg/apis/baremetal/v1alpha1"
 	ibmcloudapi "github.com/openshift/cluster-api-provider-ibmcloud/pkg/apis"
-	ibmcloudprovider "github.com/openshift/cluster-api-provider-ibmcloud/pkg/apis/ibmcloudprovider/v1beta1"
+	ibmcloudprovider "github.com/openshift/cluster-api-provider-ibmcloud/pkg/apis/ibmcloudprovider/v1"
 	libvirtapi "github.com/openshift/cluster-api-provider-libvirt/pkg/apis"
 	libvirtprovider "github.com/openshift/cluster-api-provider-libvirt/pkg/apis/libvirtproviderconfig/v1beta1"
 	ovirtproviderapi "github.com/openshift/cluster-api-provider-ovirt/pkg/apis"
 	ovirtprovider "github.com/openshift/cluster-api-provider-ovirt/pkg/apis/ovirtprovider/v1beta1"
+	nutanixapi "github.com/openshift/machine-api-provider-nutanix/pkg/apis"
+	nutanixprovider "github.com/openshift/machine-api-provider-nutanix/pkg/apis/nutanixprovider/v1beta1"
+	powervsapi "github.com/openshift/machine-api-provider-powervs/pkg/apis"
+	powervsprovider "github.com/openshift/machine-api-provider-powervs/pkg/apis/powervsprovider/v1alpha1"
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	awsapi "sigs.k8s.io/cluster-api-provider-aws/pkg/apis"
-	awsprovider "sigs.k8s.io/cluster-api-provider-aws/pkg/apis/awsprovider/v1beta1"
 	openstackapi "sigs.k8s.io/cluster-api-provider-openstack/pkg/apis"
 	openstackprovider "sigs.k8s.io/cluster-api-provider-openstack/pkg/apis/openstackproviderconfig/v1alpha1"
 
 	"github.com/openshift/installer/pkg/asset"
 	"github.com/openshift/installer/pkg/asset/ignition/machine"
 	"github.com/openshift/installer/pkg/asset/installconfig"
+	icazure "github.com/openshift/installer/pkg/asset/installconfig/azure"
 	"github.com/openshift/installer/pkg/asset/machines/alibabacloud"
 	"github.com/openshift/installer/pkg/asset/machines/aws"
 	"github.com/openshift/installer/pkg/asset/machines/azure"
@@ -41,8 +44,10 @@ import (
 	"github.com/openshift/installer/pkg/asset/machines/ibmcloud"
 	"github.com/openshift/installer/pkg/asset/machines/libvirt"
 	"github.com/openshift/installer/pkg/asset/machines/machineconfig"
+	"github.com/openshift/installer/pkg/asset/machines/nutanix"
 	"github.com/openshift/installer/pkg/asset/machines/openstack"
 	"github.com/openshift/installer/pkg/asset/machines/ovirt"
+	"github.com/openshift/installer/pkg/asset/machines/powervs"
 	"github.com/openshift/installer/pkg/asset/machines/vsphere"
 	"github.com/openshift/installer/pkg/asset/rhcos"
 	rhcosutils "github.com/openshift/installer/pkg/rhcos"
@@ -57,8 +62,10 @@ import (
 	ibmcloudtypes "github.com/openshift/installer/pkg/types/ibmcloud"
 	libvirttypes "github.com/openshift/installer/pkg/types/libvirt"
 	nonetypes "github.com/openshift/installer/pkg/types/none"
+	nutanixtypes "github.com/openshift/installer/pkg/types/nutanix"
 	openstacktypes "github.com/openshift/installer/pkg/types/openstack"
 	ovirttypes "github.com/openshift/installer/pkg/types/ovirt"
+	powervstypes "github.com/openshift/installer/pkg/types/powervs"
 	vspheretypes "github.com/openshift/installer/pkg/types/vsphere"
 )
 
@@ -328,11 +335,18 @@ func (m *Master) Generate(dependencies asset.Parents) error {
 		mpool.OSDisk.DiskSizeGB = 1024
 		mpool.Set(ic.Platform.Azure.DefaultMachinePlatform)
 		mpool.Set(pool.Platform.Azure)
+
+		session, err := installConfig.Azure.Session()
+		if err != nil {
+			return errors.Wrap(err, "failed to fetch session")
+		}
+
+		// Default to current subscription if one was not specified
+		if mpool.OSDisk.DiskEncryptionSet != nil && mpool.OSDisk.DiskEncryptionSet.SubscriptionID == "" {
+			mpool.OSDisk.DiskEncryptionSet.SubscriptionID = session.Credentials.SubscriptionID
+		}
+
 		if len(mpool.Zones) == 0 {
-			session, err := installConfig.Azure.Session()
-			if err != nil {
-				return errors.Wrap(err, "failed to fetch session for availability zones")
-			}
 			azs, err := azure.AvailabilityZones(session, ic.Platform.Azure.Region, mpool.InstanceType)
 			if err != nil {
 				return errors.Wrap(err, "failed to fetch availability zones")
@@ -347,7 +361,13 @@ func (m *Master) Generate(dependencies asset.Parents) error {
 
 		pool.Platform.Azure = &mpool
 
-		machines, err = azure.Machines(clusterID.InfraID, ic, &pool, string(*rhcosImage), "master", masterUserDataSecretName)
+		client := icazure.NewClient(session)
+		hyperVGeneration, err := client.GetHyperVGenerationVersion(context.TODO(), mpool.InstanceType, mpool.OSDisk.DiskType, installConfig.Config.Platform.Azure.Region)
+		if err != nil {
+			return err
+		}
+
+		machines, err = azure.Machines(clusterID.InfraID, ic, &pool, string(*rhcosImage), "master", masterUserDataSecretName, hyperVGeneration)
 		if err != nil {
 			return errors.Wrap(err, "failed to create master machine objects")
 		}
@@ -417,7 +437,35 @@ func (m *Master) Generate(dependencies asset.Parents) error {
 			return errors.Wrap(err, "failed to create master machine objects")
 		}
 		vsphere.ConfigMasters(machines, clusterID.InfraID)
+	case powervstypes.Name:
+		mpool := defaultPowerVSMachinePoolPlatform()
+		mpool.Set(ic.Platform.PowerVS.DefaultMachinePlatform)
+		mpool.Set(pool.Platform.PowerVS)
+		// Only the service instance is guaranteed to exist and be passed via the install config
+		// The other two, we should standardize a name including the cluster id. At this point, all
+		// we have are names.
+		pool.Platform.PowerVS = &mpool
+		machines, err = powervs.Machines(clusterID.InfraID, ic, &pool, "master", "master-user-data")
+		if err != nil {
+			return errors.Wrap(err, "failed to create master machine objects")
+		}
+		powervs.ConfigMasters(machines, clusterID.InfraID)
 	case nonetypes.Name:
+	case nutanixtypes.Name:
+		mpool := defaultNutanixMachinePoolPlatform()
+		mpool.NumCPUs = 4
+		mpool.NumCoresPerSocket = 4
+		mpool.MemoryMiB = 16384
+		mpool.Set(ic.Platform.Nutanix.DefaultMachinePlatform)
+		mpool.Set(pool.Platform.Nutanix)
+		pool.Platform.Nutanix = &mpool
+		templateName := nutanixtypes.RHCOSImageName(clusterID.InfraID)
+
+		machines, err = nutanix.Machines(clusterID.InfraID, ic, &pool, templateName, "master", masterUserDataSecretName)
+		if err != nil {
+			return errors.Wrap(err, "failed to create master machine objects")
+		}
+		nutanix.ConfigMasters(machines, clusterID.InfraID)
 	default:
 		return fmt.Errorf("invalid Platform")
 	}
@@ -544,13 +592,14 @@ func (m *Master) Load(f asset.FileFetcher) (found bool, err error) {
 // Machines returns master Machine manifest structures.
 func (m *Master) Machines() ([]machinev1beta1.Machine, error) {
 	scheme := runtime.NewScheme()
-	awsapi.AddToScheme(scheme)
 	baremetalapi.AddToScheme(scheme)
 	ibmcloudapi.AddToScheme(scheme)
 	libvirtapi.AddToScheme(scheme)
 	openstackapi.AddToScheme(scheme)
 	ovirtproviderapi.AddToScheme(scheme)
+	powervsapi.AddToScheme(scheme)
 	scheme.AddKnownTypes(machinev1beta1.SchemeGroupVersion,
+		&machinev1beta1.AWSMachineProviderConfig{},
 		&machinev1beta1.VSphereMachineProviderSpec{},
 		&machinev1beta1.AzureMachineProviderSpec{},
 		&machinev1beta1.GCPMachineProviderSpec{},
@@ -559,15 +608,17 @@ func (m *Master) Machines() ([]machinev1beta1.Machine, error) {
 		&machinev1.AlibabaCloudMachineProviderConfig{},
 	)
 	machinev1beta1.AddToScheme(scheme)
+	nutanixapi.AddToScheme(scheme)
 	decoder := serializer.NewCodecFactory(scheme).UniversalDecoder(
 		machinev1.GroupVersion,
-		awsprovider.SchemeGroupVersion,
 		baremetalprovider.SchemeGroupVersion,
 		ibmcloudprovider.SchemeGroupVersion,
 		libvirtprovider.SchemeGroupVersion,
 		openstackprovider.SchemeGroupVersion,
 		machinev1beta1.SchemeGroupVersion,
 		ovirtprovider.SchemeGroupVersion,
+		powervsprovider.GroupVersion,
+		nutanixprovider.SchemeGroupVersion,
 	)
 
 	machines := []machinev1beta1.Machine{}

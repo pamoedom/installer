@@ -11,6 +11,7 @@ import (
 	ibmcloudconfig "github.com/openshift/installer/pkg/asset/installconfig/ibmcloud"
 	openstackconfig "github.com/openshift/installer/pkg/asset/installconfig/openstack"
 	ovirtconfig "github.com/openshift/installer/pkg/asset/installconfig/ovirt"
+	powervsconfig "github.com/openshift/installer/pkg/asset/installconfig/powervs"
 	"github.com/openshift/installer/pkg/types/alibabacloud"
 	"github.com/openshift/installer/pkg/types/aws"
 	"github.com/openshift/installer/pkg/types/azure"
@@ -19,8 +20,10 @@ import (
 	"github.com/openshift/installer/pkg/types/ibmcloud"
 	"github.com/openshift/installer/pkg/types/libvirt"
 	"github.com/openshift/installer/pkg/types/none"
+	"github.com/openshift/installer/pkg/types/nutanix"
 	"github.com/openshift/installer/pkg/types/openstack"
 	"github.com/openshift/installer/pkg/types/ovirt"
+	"github.com/openshift/installer/pkg/types/powervs"
 	"github.com/openshift/installer/pkg/types/vsphere"
 )
 
@@ -52,6 +55,7 @@ func (a *PlatformCredsCheck) Generate(dependencies asset.Parents) error {
 		if err != nil {
 			return errors.Wrap(err, "creating AlibabaCloud Cloud session")
 		}
+
 	case aws.Name:
 		_, err := ic.AWS.Session(ctx)
 		if err != nil {
@@ -72,7 +76,7 @@ func (a *PlatformCredsCheck) Generate(dependencies asset.Parents) error {
 		if err != nil {
 			return errors.Wrap(err, "creating OpenStack session")
 		}
-	case baremetal.Name, libvirt.Name, none.Name, vsphere.Name:
+	case baremetal.Name, libvirt.Name, none.Name, vsphere.Name, nutanix.Name:
 		// no creds to check
 	case azure.Name:
 		_, err = ic.Azure.Session()
@@ -87,6 +91,11 @@ func (a *PlatformCredsCheck) Generate(dependencies asset.Parents) error {
 		err = con.Test()
 		if err != nil {
 			return errors.Wrap(err, "testing Engine connection")
+		}
+	case powervs.Name:
+		_, err = powervsconfig.GetSession()
+		if err != nil {
+			return errors.Wrap(err, "creating IBM Cloud session")
 		}
 	default:
 		err = fmt.Errorf("unknown platform type %q", platform)

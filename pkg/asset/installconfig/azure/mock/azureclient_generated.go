@@ -12,6 +12,7 @@ import (
 	network "github.com/Azure/azure-sdk-for-go/profiles/2018-03-01/network/mgmt/network"
 	resources "github.com/Azure/azure-sdk-for-go/profiles/2018-03-01/resources/mgmt/resources"
 	subscriptions "github.com/Azure/azure-sdk-for-go/profiles/2018-03-01/resources/mgmt/subscriptions"
+	compute0 "github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -36,6 +37,21 @@ func NewMockAPI(ctrl *gomock.Controller) *MockAPI {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAPI) EXPECT() *MockAPIMockRecorder {
 	return m.recorder
+}
+
+// AreMarketplaceImageTermsAccepted mocks base method.
+func (m *MockAPI) AreMarketplaceImageTermsAccepted(ctx context.Context, publisher, offer, sku string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AreMarketplaceImageTermsAccepted", ctx, publisher, offer, sku)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AreMarketplaceImageTermsAccepted indicates an expected call of AreMarketplaceImageTermsAccepted.
+func (mr *MockAPIMockRecorder) AreMarketplaceImageTermsAccepted(ctx, publisher, offer, sku interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AreMarketplaceImageTermsAccepted", reflect.TypeOf((*MockAPI)(nil).AreMarketplaceImageTermsAccepted), ctx, publisher, offer, sku)
 }
 
 // GetComputeSubnet mocks base method.
@@ -68,6 +84,21 @@ func (mr *MockAPIMockRecorder) GetControlPlaneSubnet(ctx, resourceGroupName, vir
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControlPlaneSubnet", reflect.TypeOf((*MockAPI)(nil).GetControlPlaneSubnet), ctx, resourceGroupName, virtualNetwork, subnet)
 }
 
+// GetDiskEncryptionSet mocks base method.
+func (m *MockAPI) GetDiskEncryptionSet(ctx context.Context, subscriptionID, groupName, diskEncryptionSetName string) (*compute0.DiskEncryptionSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDiskEncryptionSet", ctx, subscriptionID, groupName, diskEncryptionSetName)
+	ret0, _ := ret[0].(*compute0.DiskEncryptionSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDiskEncryptionSet indicates an expected call of GetDiskEncryptionSet.
+func (mr *MockAPIMockRecorder) GetDiskEncryptionSet(ctx, subscriptionID, groupName, diskEncryptionSetName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDiskEncryptionSet", reflect.TypeOf((*MockAPI)(nil).GetDiskEncryptionSet), ctx, subscriptionID, groupName, diskEncryptionSetName)
+}
+
 // GetDiskSkus mocks base method.
 func (m *MockAPI) GetDiskSkus(ctx context.Context, region string) ([]compute.ResourceSku, error) {
 	m.ctrl.T.Helper()
@@ -96,6 +127,36 @@ func (m *MockAPI) GetGroup(ctx context.Context, groupName string) (*resources.Gr
 func (mr *MockAPIMockRecorder) GetGroup(ctx, groupName interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGroup", reflect.TypeOf((*MockAPI)(nil).GetGroup), ctx, groupName)
+}
+
+// GetHyperVGenerationVersion mocks base method.
+func (m *MockAPI) GetHyperVGenerationVersion(ctx context.Context, instanceType, diskType, region string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHyperVGenerationVersion", ctx, instanceType, diskType, region)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHyperVGenerationVersion indicates an expected call of GetHyperVGenerationVersion.
+func (mr *MockAPIMockRecorder) GetHyperVGenerationVersion(ctx, instanceType, diskType, region interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHyperVGenerationVersion", reflect.TypeOf((*MockAPI)(nil).GetHyperVGenerationVersion), ctx, instanceType, diskType, region)
+}
+
+// GetMarketplaceImage mocks base method.
+func (m *MockAPI) GetMarketplaceImage(ctx context.Context, region, publisher, offer, sku, version string) (compute.VirtualMachineImage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMarketplaceImage", ctx, region, publisher, offer, sku, version)
+	ret0, _ := ret[0].(compute.VirtualMachineImage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMarketplaceImage indicates an expected call of GetMarketplaceImage.
+func (mr *MockAPIMockRecorder) GetMarketplaceImage(ctx, region, publisher, offer, sku, version interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketplaceImage", reflect.TypeOf((*MockAPI)(nil).GetMarketplaceImage), ctx, region, publisher, offer, sku, version)
 }
 
 // GetResourcesProvider mocks base method.

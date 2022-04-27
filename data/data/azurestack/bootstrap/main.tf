@@ -99,7 +99,7 @@ resource "azurestack_network_interface" "bootstrap" {
     public_ip_address_id          = var.azure_private ? null : azurestack_public_ip.bootstrap_public_ip_v4[0].id
     load_balancer_backend_address_pools_ids = concat(
       [var.ilb_backend_pool_v4_id],
-      ! var.azure_private ? [var.elb_backend_pool_v4_id] : null
+      ! var.azure_private ? [var.elb_backend_pool_v4_id] : []
     )
   }
 }
@@ -137,7 +137,7 @@ resource "azurestack_virtual_machine" "bootstrap" {
     name              = "${var.cluster_id}-bootstrap_OSDisk" # os disk name needs to match cluster-api convention
     create_option     = "FromImage"
     disk_size_gb      = 100
-    managed_disk_type = "Standard_LRS"
+    managed_disk_type = var.azure_master_root_volume_type
   }
 
   boot_diagnostics {

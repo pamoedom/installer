@@ -23,6 +23,17 @@ variable "azure_master_vm_type" {
   description = "Instance type for the master node(s). Example: `Standard_D8s_v3`."
 }
 
+variable "azure_master_disk_encryption_set_id" {
+  type = string
+  default = null
+  description = "The ID of the Disk Encryption Set which should be used to encrypt OS disk for the master node(s)."
+}
+
+variable "azure_master_encryption_at_host_enabled" {
+  type = bool
+  description = "Enables encryption at the VM host for the master node(s)."
+}
+
 variable "azure_extra_tags" {
   type = map(string)
 
@@ -44,6 +55,11 @@ variable "azure_master_root_volume_type" {
 variable "azure_master_root_volume_size" {
   type        = string
   description = "The size of the volume in gigabytes for the root block device of master nodes."
+}
+
+variable "azure_control_plane_ultra_ssd_enabled" {
+  type        = bool
+  description = "Determines if the control plane should have UltraSSD Enabled."
 }
 
 variable "azure_base_domain_resource_group_name" {
@@ -146,4 +162,16 @@ variable "azure_outbound_user_defined_routing" {
 This determined whether User defined routing will be used for egress to Internet.
 When false, Standard LB will be used for egress to the Internet.
 EOF
+}
+
+variable "azure_hypervgeneration_version" {
+  type = string
+  description = <<EOF
+This determines the HyperVGeneration disk type to use for the control plane VMs.
+EOF
+}
+
+variable "azure_control_plane_vm_networking_type" {
+  type        = bool
+  description = "Whether to enable accelerated networking on control plane nodes."
 }

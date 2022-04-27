@@ -21,8 +21,10 @@ import (
 	"github.com/openshift/installer/pkg/types/ibmcloud"
 	"github.com/openshift/installer/pkg/types/libvirt"
 	"github.com/openshift/installer/pkg/types/none"
+	"github.com/openshift/installer/pkg/types/nutanix"
 	"github.com/openshift/installer/pkg/types/openstack"
 	"github.com/openshift/installer/pkg/types/ovirt"
+	"github.com/openshift/installer/pkg/types/powervs"
 	"github.com/openshift/installer/pkg/types/vsphere"
 )
 
@@ -82,26 +84,10 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 		},
 	}
 
-	if installConfig.Config.ControlPlane.Replicas != nil && *installConfig.Config.ControlPlane.Replicas < 3 {
-		config.Status.ControlPlaneTopology = configv1.SingleReplicaTopologyMode
-	} else {
-		config.Status.ControlPlaneTopology = configv1.HighlyAvailableTopologyMode
-	}
+	controlPlaneTopology, infrastructureTopology := determineTopologies(installConfig.Config)
 
-	numOfWorkers := int64(0)
-	for _, mp := range installConfig.Config.Compute {
-		if mp.Replicas != nil {
-			numOfWorkers += *mp.Replicas
-		}
-	}
-	switch numOfWorkers {
-	case 0:
-		config.Status.InfrastructureTopology = config.Status.ControlPlaneTopology
-	case 1:
-		config.Status.InfrastructureTopology = configv1.SingleReplicaTopologyMode
-	default:
-		config.Status.InfrastructureTopology = configv1.HighlyAvailableTopologyMode
-	}
+	config.Status.InfrastructureTopology = infrastructureTopology
+	config.Status.ControlPlaneTopology = controlPlaneTopology
 
 	switch installConfig.Config.Platform.Name() {
 	case aws.Name:
@@ -186,6 +172,7 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 			Location:          installConfig.Config.Platform.IBMCloud.Region,
 			ResourceGroupName: installConfig.Config.Platform.IBMCloud.ClusterResourceGroupName(clusterID.InfraID),
 			CISInstanceCRN:    cisInstanceCRN,
+			ProviderType:      configv1.IBMCloudProviderTypeVPC,
 		}
 	case libvirt.Name:
 		config.Spec.PlatformSpec.Type = configv1.LibvirtPlatformType
@@ -210,6 +197,25 @@ func (i *Infrastructure) Generate(dependencies asset.Parents) error {
 		config.Status.PlatformStatus.Ovirt = &configv1.OvirtPlatformStatus{
 			APIServerInternalIP: installConfig.Config.Ovirt.APIVIP,
 			IngressIP:           installConfig.Config.Ovirt.IngressVIP,
+		}
+	case powervs.Name:
+		config.Spec.PlatformSpec.Type = configv1.PowerVSPlatformType
+		cisInstanceCRN, err := installConfig.PowerVS.CISInstanceCRN(context.TODO())
+		if err != nil {
+			return errors.Wrapf(err, "failed to get instance CRN")
+		}
+		config.Status.PlatformStatus.PowerVS = &configv1.PowerVSPlatformStatus{
+			Region:         installConfig.Config.Platform.PowerVS.Region,
+			Zone:           installConfig.Config.Platform.PowerVS.Zone,
+			CISInstanceCRN: cisInstanceCRN,
+		}
+	case nutanix.Name:
+		config.Spec.PlatformSpec.Type = configv1.NutanixPlatformType
+		if installConfig.Config.Nutanix.APIVIP != "" {
+			config.Status.PlatformStatus.Nutanix = &configv1.NutanixPlatformStatus{
+				APIServerInternalIP: installConfig.Config.Nutanix.APIVIP,
+				IngressIP:           installConfig.Config.Nutanix.IngressVIP,
+			}
 		}
 	default:
 		config.Spec.PlatformSpec.Type = configv1.NonePlatformType

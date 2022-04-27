@@ -24,7 +24,7 @@ resource "vsphere_virtual_machine" "vm_bootstrap" {
   wait_for_guest_net_routable = false
 
   network_interface {
-    network_id = var.network
+    network_id = var.vsphere_network
   }
 
   disk {
@@ -42,7 +42,7 @@ resource "vsphere_virtual_machine" "vm_bootstrap" {
     "guestinfo.ignition.config.data"          = base64encode(var.ignition_bootstrap)
     "guestinfo.ignition.config.data.encoding" = "base64"
     "guestinfo.hostname"                      = "${var.cluster_id}-bootstrap"
+    "guestinfo.domain"                        = "${var.cluster_domain}"
   }
   tags = var.tags
 }
-

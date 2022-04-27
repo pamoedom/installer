@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: installconfigs.install.openshift.io
 spec:
@@ -57,6 +57,8 @@ spec:
                     cluster components.
                   enum:
                   - openshift-samples
+                  - baremetal
+                  - marketplace
                   type: string
                 type: array
               baselineCapabilitySet:
@@ -149,6 +151,27 @@ spec:
                             for the instance profile of the machine. Leave unset to
                             have the installer create the IAM Role on your behalf.
                           type: string
+                        metadataService:
+                          description: EC2MetadataOptions defines metadata service
+                            interaction options for EC2 instances in the machine pool.
+                          properties:
+                            authentication:
+                              description: Authentication determines whether or not
+                                the host requires the use of authentication when interacting
+                                with the metadata service. When using authentication,
+                                this enforces v2 interaction method (IMDSv2) with
+                                the metadata service. When omitted, this means the
+                                user has no opinion and the value is left to the platform
+                                to choose a good default, which is subject to change
+                                over time. The current default is optional. At this
+                                point this field represents `HttpTokens` parameter
+                                from `InstanceMetadataOptionsRequest` structure in
+                                AWS EC2 API https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceMetadataOptionsRequest.html
+                              enum:
+                              - Required
+                              - Optional
+                              type: string
+                          type: object
                         rootVolume:
                           description: EC2RootVolume defines the root volume for EC2
                             instances in the machine pool.
@@ -190,9 +213,33 @@ spec:
                       description: Azure is the configuration used when installing
                         on Azure.
                       properties:
+                        encryptionAtHost:
+                          description: EncryptionAtHost enables encryption at the
+                            VM host.
+                          type: boolean
                         osDisk:
                           description: OSDisk defines the storage for instance.
                           properties:
+                            diskEncryptionSet:
+                              description: DiskEncryptionSet defines a disk encryption
+                                set.
+                              properties:
+                                name:
+                                  description: Name is the name of the disk encryption
+                                    set.
+                                  type: string
+                                resourceGroup:
+                                  description: ResourceGroup defines the Azure resource
+                                    group used by the disk encryption set.
+                                  type: string
+                                subscriptionId:
+                                  description: SubscriptionID defines the Azure subscription
+                                    the disk encryption set is in.
+                                  type: string
+                              required:
+                              - name
+                              - resourceGroup
+                              type: object
                             diskSizeGB:
                               description: DiskSizeGB defines the size of disk in
                                 GB.
@@ -200,10 +247,9 @@ spec:
                               minimum: 0
                               type: integer
                             diskType:
-                              description: DiskType defines the type of disk. The
-                                valid values are Standard_LRS, Premium_LRS, StandardSSD_LRS
-                                For control plane nodes, the valid values are Premium_LRS
-                                and StandardSSD_LRS. Default is Premium_LRS
+                              description: DiskType defines the type of disk. For
+                                control plane nodes, the valid values are Premium_LRS
+                                and StandardSSD_LRS. Default is Premium_LRS.
                               enum:
                               - Standard_LRS
                               - Premium_LRS
@@ -212,9 +258,45 @@ spec:
                           required:
                           - diskSizeGB
                           type: object
+                        osImage:
+                          description: OSImage defines the image to use for the OS.
+                          properties:
+                            offer:
+                              description: Offer is the offer of the image.
+                              type: string
+                            publisher:
+                              description: Publisher is the publisher of the image.
+                              type: string
+                            sku:
+                              description: SKU is the SKU of the image.
+                              type: string
+                            version:
+                              description: Version is the version of the image.
+                              type: string
+                          required:
+                          - offer
+                          - publisher
+                          - sku
+                          - version
+                          type: object
                         type:
                           description: InstanceType defines the azure instance type.
                             eg. Standard_DS_V2
+                          type: string
+                        ultraSSDCapability:
+                          description: ultraSSDCapability defines if the instance
+                            should use Ultra SSD disks. The valid values are Enabled,
+                            Disabled.
+                          type: string
+                        vmNetworkingType:
+                          description: 'VMNetworkingType specifies whether to enable
+                            accelerated networking. Accelerated networking enables
+                            single root I/O virtualization (SR-IOV) to a VM, greatly
+                            improving its networking performance. eg. values: "Accelerated",
+                            "Basic"'
+                          enum:
+                          - Accelerated
+                          - Basic
                           type: string
                         zones:
                           description: Zones is list of availability zones that can
@@ -350,6 +432,35 @@ spec:
                       description: Libvirt is the configuration used when installing
                         on libvirt.
                       type: object
+                    nutanix:
+                      description: Nutanix is the configuration used when installing
+                        on Nutanix.
+                      properties:
+                        coresPerSocket:
+                          description: NumCoresPerSocket is the number of cores per
+                            socket in a vm. The number of vCPUs on the vm will be
+                            NumCPUs/NumCoresPerSocket.
+                          format: int64
+                          type: integer
+                        cpus:
+                          description: NumCPUs is the total number of virtual processor
+                            cores to assign a vm.
+                          format: int64
+                          type: integer
+                        memoryMiB:
+                          description: Memory is the size of a VM's memory in MiB.
+                          format: int64
+                          type: integer
+                        osDisk:
+                          description: OSDisk defines the storage for instance.
+                          properties:
+                            diskSizeMiB:
+                              description: DiskSizeMiB defines the size of disk in
+                                MiB.
+                              format: int64
+                              type: integer
+                          type: object
+                      type: object
                     openstack:
                       description: OpenStack is the configuration used when installing
                         on OpenStack.
@@ -440,6 +551,15 @@ spec:
                           - none
                           - resize_and_pin
                           type: string
+                        clone:
+                          description: "Clone makes sure that the disks are cloned
+                            from the template and are not linked. Defaults to true
+                            for high performance and server VM types, false for desktop
+                            types. \n Note: this option is not documented in the OpenShift
+                            documentation. This is intentional as it has sane defaults
+                            that shouldn't be changed unless needed for debugging
+                            or resolving issues in cooperation with Red Hat support."
+                          type: boolean
                         cpu:
                           description: CPU defines the VM CPU.
                           properties:
@@ -457,6 +577,15 @@ spec:
                           - cores
                           - sockets
                           type: object
+                        format:
+                          description: Format is the disk format that the disks are
+                            in. Can be "cow" or "raw". "raw" disables several features
+                            that may be needed, such as incremental backups.
+                          enum:
+                          - ""
+                          - raw
+                          - cow
+                          type: string
                         hugepages:
                           description: Hugepages is the size of a VM's hugepages to
                             use in KiBs.
@@ -485,6 +614,10 @@ spec:
                           required:
                           - sizeGB
                           type: object
+                        sparse:
+                          description: Sparse indicates that sparse provisioning should
+                            be used and disks should be not preallocated.
+                          type: boolean
                         vmType:
                           description: VMType defines the workload type of the VM.
                           enum:
@@ -641,6 +774,27 @@ spec:
                           the instance profile of the machine. Leave unset to have
                           the installer create the IAM Role on your behalf.
                         type: string
+                      metadataService:
+                        description: EC2MetadataOptions defines metadata service interaction
+                          options for EC2 instances in the machine pool.
+                        properties:
+                          authentication:
+                            description: Authentication determines whether or not
+                              the host requires the use of authentication when interacting
+                              with the metadata service. When using authentication,
+                              this enforces v2 interaction method (IMDSv2) with the
+                              metadata service. When omitted, this means the user
+                              has no opinion and the value is left to the platform
+                              to choose a good default, which is subject to change
+                              over time. The current default is optional. At this
+                              point this field represents `HttpTokens` parameter from
+                              `InstanceMetadataOptionsRequest` structure in AWS EC2
+                              API https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceMetadataOptionsRequest.html
+                            enum:
+                            - Required
+                            - Optional
+                            type: string
+                        type: object
                       rootVolume:
                         description: EC2RootVolume defines the root volume for EC2
                           instances in the machine pool.
@@ -682,19 +836,42 @@ spec:
                     description: Azure is the configuration used when installing on
                       Azure.
                     properties:
+                      encryptionAtHost:
+                        description: EncryptionAtHost enables encryption at the VM
+                          host.
+                        type: boolean
                       osDisk:
                         description: OSDisk defines the storage for instance.
                         properties:
+                          diskEncryptionSet:
+                            description: DiskEncryptionSet defines a disk encryption
+                              set.
+                            properties:
+                              name:
+                                description: Name is the name of the disk encryption
+                                  set.
+                                type: string
+                              resourceGroup:
+                                description: ResourceGroup defines the Azure resource
+                                  group used by the disk encryption set.
+                                type: string
+                              subscriptionId:
+                                description: SubscriptionID defines the Azure subscription
+                                  the disk encryption set is in.
+                                type: string
+                            required:
+                            - name
+                            - resourceGroup
+                            type: object
                           diskSizeGB:
                             description: DiskSizeGB defines the size of disk in GB.
                             format: int32
                             minimum: 0
                             type: integer
                           diskType:
-                            description: DiskType defines the type of disk. The valid
-                              values are Standard_LRS, Premium_LRS, StandardSSD_LRS
-                              For control plane nodes, the valid values are Premium_LRS
-                              and StandardSSD_LRS. Default is Premium_LRS
+                            description: DiskType defines the type of disk. For control
+                              plane nodes, the valid values are Premium_LRS and StandardSSD_LRS.
+                              Default is Premium_LRS.
                             enum:
                             - Standard_LRS
                             - Premium_LRS
@@ -703,9 +880,43 @@ spec:
                         required:
                         - diskSizeGB
                         type: object
+                      osImage:
+                        description: OSImage defines the image to use for the OS.
+                        properties:
+                          offer:
+                            description: Offer is the offer of the image.
+                            type: string
+                          publisher:
+                            description: Publisher is the publisher of the image.
+                            type: string
+                          sku:
+                            description: SKU is the SKU of the image.
+                            type: string
+                          version:
+                            description: Version is the version of the image.
+                            type: string
+                        required:
+                        - offer
+                        - publisher
+                        - sku
+                        - version
+                        type: object
                       type:
                         description: InstanceType defines the azure instance type.
                           eg. Standard_DS_V2
+                        type: string
+                      ultraSSDCapability:
+                        description: ultraSSDCapability defines if the instance should
+                          use Ultra SSD disks. The valid values are Enabled, Disabled.
+                        type: string
+                      vmNetworkingType:
+                        description: 'VMNetworkingType specifies whether to enable
+                          accelerated networking. Accelerated networking enables single
+                          root I/O virtualization (SR-IOV) to a VM, greatly improving
+                          its networking performance. eg. values: "Accelerated", "Basic"'
+                        enum:
+                        - Accelerated
+                        - Basic
                         type: string
                       zones:
                         description: Zones is list of availability zones that can
@@ -840,6 +1051,33 @@ spec:
                     description: Libvirt is the configuration used when installing
                       on libvirt.
                     type: object
+                  nutanix:
+                    description: Nutanix is the configuration used when installing
+                      on Nutanix.
+                    properties:
+                      coresPerSocket:
+                        description: NumCoresPerSocket is the number of cores per
+                          socket in a vm. The number of vCPUs on the vm will be NumCPUs/NumCoresPerSocket.
+                        format: int64
+                        type: integer
+                      cpus:
+                        description: NumCPUs is the total number of virtual processor
+                          cores to assign a vm.
+                        format: int64
+                        type: integer
+                      memoryMiB:
+                        description: Memory is the size of a VM's memory in MiB.
+                        format: int64
+                        type: integer
+                      osDisk:
+                        description: OSDisk defines the storage for instance.
+                        properties:
+                          diskSizeMiB:
+                            description: DiskSizeMiB defines the size of disk in MiB.
+                            format: int64
+                            type: integer
+                        type: object
+                    type: object
                   openstack:
                     description: OpenStack is the configuration used when installing
                       on OpenStack.
@@ -930,6 +1168,15 @@ spec:
                         - none
                         - resize_and_pin
                         type: string
+                      clone:
+                        description: "Clone makes sure that the disks are cloned from
+                          the template and are not linked. Defaults to true for high
+                          performance and server VM types, false for desktop types.
+                          \n Note: this option is not documented in the OpenShift
+                          documentation. This is intentional as it has sane defaults
+                          that shouldn't be changed unless needed for debugging or
+                          resolving issues in cooperation with Red Hat support."
+                        type: boolean
                       cpu:
                         description: CPU defines the VM CPU.
                         properties:
@@ -947,6 +1194,15 @@ spec:
                         - cores
                         - sockets
                         type: object
+                      format:
+                        description: Format is the disk format that the disks are
+                          in. Can be "cow" or "raw". "raw" disables several features
+                          that may be needed, such as incremental backups.
+                        enum:
+                        - ""
+                        - raw
+                        - cow
+                        type: string
                       hugepages:
                         description: Hugepages is the size of a VM's hugepages to
                           use in KiBs.
@@ -975,6 +1231,10 @@ spec:
                         required:
                         - sizeGB
                         type: object
+                      sparse:
+                        description: Sparse indicates that sparse provisioning should
+                          be used and disks should be not preallocated.
+                        type: boolean
                       vmType:
                         description: VMType defines the workload type of the VM.
                         enum:
@@ -1064,9 +1324,9 @@ spec:
               \"Manual\": CredentialsRequests must be handled manually by the user
               \n For each of the following platforms, the field can set to the specified
               values. For all other platforms, the field must not be set. AWS: \"Mint\",
-              \"Passthrough\", \"Manual\" Azure: \"Mint\", \"Passthrough\", \"Manual\"
-              AzureStack: \"Manual\" GCP: \"Mint\", \"Passthrough\", \"Manual\" IBMCloud:
-              \"Manual\" AlibabaCloud: \"Manual\" PowerVS: \"Manual\""
+              \"Passthrough\", \"Manual\" Azure: \"Passthrough\", \"Manual\" AzureStack:
+              \"Manual\" GCP: \"Mint\", \"Passthrough\", \"Manual\" IBMCloud: \"Manual\"
+              AlibabaCloud: \"Manual\" PowerVS: \"Manual\" Nutanix: \"Manual\""
             enum:
             - ""
             - Mint
@@ -1309,6 +1569,27 @@ spec:
                           the instance profile of the machine. Leave unset to have
                           the installer create the IAM Role on your behalf.
                         type: string
+                      metadataService:
+                        description: EC2MetadataOptions defines metadata service interaction
+                          options for EC2 instances in the machine pool.
+                        properties:
+                          authentication:
+                            description: Authentication determines whether or not
+                              the host requires the use of authentication when interacting
+                              with the metadata service. When using authentication,
+                              this enforces v2 interaction method (IMDSv2) with the
+                              metadata service. When omitted, this means the user
+                              has no opinion and the value is left to the platform
+                              to choose a good default, which is subject to change
+                              over time. The current default is optional. At this
+                              point this field represents `HttpTokens` parameter from
+                              `InstanceMetadataOptionsRequest` structure in AWS EC2
+                              API https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_InstanceMetadataOptionsRequest.html
+                            enum:
+                            - Required
+                            - Optional
+                            type: string
+                        type: object
                       rootVolume:
                         description: EC2RootVolume defines the root volume for EC2
                           instances in the machine pool.
@@ -1445,19 +1726,42 @@ spec:
                       used when installing on Azure for machine pools which do not
                       define their own platform configuration.
                     properties:
+                      encryptionAtHost:
+                        description: EncryptionAtHost enables encryption at the VM
+                          host.
+                        type: boolean
                       osDisk:
                         description: OSDisk defines the storage for instance.
                         properties:
+                          diskEncryptionSet:
+                            description: DiskEncryptionSet defines a disk encryption
+                              set.
+                            properties:
+                              name:
+                                description: Name is the name of the disk encryption
+                                  set.
+                                type: string
+                              resourceGroup:
+                                description: ResourceGroup defines the Azure resource
+                                  group used by the disk encryption set.
+                                type: string
+                              subscriptionId:
+                                description: SubscriptionID defines the Azure subscription
+                                  the disk encryption set is in.
+                                type: string
+                            required:
+                            - name
+                            - resourceGroup
+                            type: object
                           diskSizeGB:
                             description: DiskSizeGB defines the size of disk in GB.
                             format: int32
                             minimum: 0
                             type: integer
                           diskType:
-                            description: DiskType defines the type of disk. The valid
-                              values are Standard_LRS, Premium_LRS, StandardSSD_LRS
-                              For control plane nodes, the valid values are Premium_LRS
-                              and StandardSSD_LRS. Default is Premium_LRS
+                            description: DiskType defines the type of disk. For control
+                              plane nodes, the valid values are Premium_LRS and StandardSSD_LRS.
+                              Default is Premium_LRS.
                             enum:
                             - Standard_LRS
                             - Premium_LRS
@@ -1466,9 +1770,43 @@ spec:
                         required:
                         - diskSizeGB
                         type: object
+                      osImage:
+                        description: OSImage defines the image to use for the OS.
+                        properties:
+                          offer:
+                            description: Offer is the offer of the image.
+                            type: string
+                          publisher:
+                            description: Publisher is the publisher of the image.
+                            type: string
+                          sku:
+                            description: SKU is the SKU of the image.
+                            type: string
+                          version:
+                            description: Version is the version of the image.
+                            type: string
+                        required:
+                        - offer
+                        - publisher
+                        - sku
+                        - version
+                        type: object
                       type:
                         description: InstanceType defines the azure instance type.
                           eg. Standard_DS_V2
+                        type: string
+                      ultraSSDCapability:
+                        description: ultraSSDCapability defines if the instance should
+                          use Ultra SSD disks. The valid values are Enabled, Disabled.
+                        type: string
+                      vmNetworkingType:
+                        description: 'VMNetworkingType specifies whether to enable
+                          accelerated networking. Accelerated networking enables single
+                          root I/O virtualization (SR-IOV) to a VM, greatly improving
+                          its networking performance. eg. values: "Accelerated", "Basic"'
+                        enum:
+                        - Accelerated
+                        - Basic
                         type: string
                       zones:
                         description: Zones is list of availability zones that can
@@ -1947,6 +2285,78 @@ spec:
                 description: None is the empty configuration used when installing
                   on an unsupported platform.
                 type: object
+              nutanix:
+                description: Nutanix is the configuration used when installing on
+                  Nutanix.
+                properties:
+                  apiVIP:
+                    description: APIVIP is the virtual IP address for the api endpoint
+                    type: string
+                  clusterOSImage:
+                    description: ClusterOSImage overrides the url provided in rhcos.json
+                      to download the RHCOS Image
+                    type: string
+                  defaultMachinePlatform:
+                    description: DefaultMachinePlatform is the default configuration
+                      used when installing on Nutanix for machine pools which do not
+                      define their own platform configuration.
+                    properties:
+                      coresPerSocket:
+                        description: NumCoresPerSocket is the number of cores per
+                          socket in a vm. The number of vCPUs on the vm will be NumCPUs/NumCoresPerSocket.
+                        format: int64
+                        type: integer
+                      cpus:
+                        description: NumCPUs is the total number of virtual processor
+                          cores to assign a vm.
+                        format: int64
+                        type: integer
+                      memoryMiB:
+                        description: Memory is the size of a VM's memory in MiB.
+                        format: int64
+                        type: integer
+                      osDisk:
+                        description: OSDisk defines the storage for instance.
+                        properties:
+                          diskSizeMiB:
+                            description: DiskSizeMiB defines the size of disk in MiB.
+                            format: int64
+                            type: integer
+                        type: object
+                    type: object
+                  ingressVIP:
+                    description: IngressVIP is the virtual IP address for ingress
+                    type: string
+                  password:
+                    description: Password is the password for the user to use to connect
+                      to the Prism Central.
+                    type: string
+                  port:
+                    description: Port is the port to use to connect to the Prism Central.
+                    type: string
+                  prismCentral:
+                    description: PrismCentral is the domain name or IP address of
+                      the Prism Central.
+                    type: string
+                  prismElementUUID:
+                    description: PrismElementUUID is the UUID of the Prism Element
+                      cluster to use in the Prism Central.
+                    type: string
+                  subnetUUID:
+                    description: SubnetUUID specifies the UUID of the subnet to be
+                      used by the cluster.
+                    type: string
+                  username:
+                    description: Username is the name of the user to use to connect
+                      to the Prism Central.
+                    type: string
+                required:
+                - password
+                - port
+                - prismCentral
+                - prismElementUUID
+                - username
+                type: object
               openstack:
                 description: OpenStack is the configuration used when installing on
                   OpenStack.
@@ -2159,6 +2569,15 @@ spec:
                         - none
                         - resize_and_pin
                         type: string
+                      clone:
+                        description: "Clone makes sure that the disks are cloned from
+                          the template and are not linked. Defaults to true for high
+                          performance and server VM types, false for desktop types.
+                          \n Note: this option is not documented in the OpenShift
+                          documentation. This is intentional as it has sane defaults
+                          that shouldn't be changed unless needed for debugging or
+                          resolving issues in cooperation with Red Hat support."
+                        type: boolean
                       cpu:
                         description: CPU defines the VM CPU.
                         properties:
@@ -2176,6 +2595,15 @@ spec:
                         - cores
                         - sockets
                         type: object
+                      format:
+                        description: Format is the disk format that the disks are
+                          in. Can be "cow" or "raw". "raw" disables several features
+                          that may be needed, such as incremental backups.
+                        enum:
+                        - ""
+                        - raw
+                        - cow
+                        type: string
                       hugepages:
                         description: Hugepages is the size of a VM's hugepages to
                           use in KiBs.
@@ -2204,6 +2632,10 @@ spec:
                         required:
                         - sizeGB
                         type: object
+                      sparse:
+                        description: Sparse indicates that sparse provisioning should
+                          be used and disks should be not preallocated.
+                        type: boolean
                       vmType:
                         description: VMType defines the workload type of the VM.
                         enum:
